@@ -15,6 +15,7 @@ namespace EmployeesGUIApp
     public partial class MainWindow : Window
     {
         private string _filePath;
+        private readonly List<SalaryRecord> _allRecords = new List<SalaryRecord>();
 
         // Словарь для перевода месяцев
         private static readonly Dictionary<string, string> MonthEnToRu = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -70,6 +71,7 @@ namespace EmployeesGUIApp
                 MessageBox.Show("Файл не выбран!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
+            _allRecords.Clear();
 
             // 2.1 (XSLT)
             try
@@ -186,7 +188,6 @@ namespace EmployeesGUIApp
             try
             {
                 XDocument doc = XDocument.Load("result.xml");
-                var records = new List<SalaryRecord>();
 
                 foreach (XElement emp in doc.Root.Elements("Employee"))
                 {
@@ -205,7 +206,7 @@ namespace EmployeesGUIApp
                         if (decimal.TryParse(amountStr, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal amount))
                         {
                             string monthRu = TranslateMonth(monthEn);
-                            records.Add(new SalaryRecord
+                            _allRecords.Add(new SalaryRecord
                             {
                                 FullName = fullName,
                                 MonthEn = monthEn,
@@ -215,34 +216,82 @@ namespace EmployeesGUIApp
                         }
                     }
                 }
-
-                // === Список сотрудников ===
-                var employees = records
-                    .Select(r => r.FullName)
-                    .Distinct()
-                    .OrderBy(x => x)
-                    .ToList();
-
-                EmployeesListBox.ItemsSource = employees;
-
-                // === Сумма по месяцам ===
-                var monthly = records
-                    .GroupBy(r => r.MonthEn)
-                    .Select(g =>
-                    {
-                        string monthRu = TranslateMonth(g.Key);
-                        decimal total = g.Sum(x => x.Amount);
-                        return new { Month = monthRu, TotalAmount = total };
-                    })
-                    .OrderBy(x => GetMonthOrder(x.Month))
-                    .ToList();
-
-                MonthlyTotalsGrid.ItemsSource = monthly;
+                UpdateUI();
+                MessageBox.Show($"Загружено {_allRecords.Count} записей.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Ошибка: {ex.Message}", "XML", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private void AddPayment_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(txtName.Text) ||
+                string.IsNullOrWhiteSpace(txtSurname.Text) ||
+                string.IsNullOrWhiteSpace(txtAmount.Text) ||
+                string.IsNullOrWhiteSpace(txtMonthEn.Text))
+            {
+                MessageBox.Show("Заполните все поля!", "Внимание", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            string amountStr = txtAmount.Text.Trim().Replace(",", ".");
+            if (!decimal.TryParse(amountStr, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal amount))
+            {
+                MessageBox.Show("Неверный формат суммы!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            string monthEn = txtMonthEn.Text.Trim().ToLower();
+            string monthRu = TranslateMonth(monthEn);
+
+            _allRecords.Add(new SalaryRecord
+            {
+                FullName = $"{txtName.Text.Trim()} {txtSurname.Text.Trim()}".Trim(),
+                MonthEn = monthEn,
+                MonthRu = monthRu,
+                Amount = amount
+            });
+
+            UpdateUI();
+            ClearForm();
+            MessageBox.Show("Выплата добавлена!", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void UpdateUI()
+        {
+            // === Список сотрудников ===
+            var employees = _allRecords
+                    .Select(r => r.FullName)
+                    .Where(name => !string.IsNullOrEmpty(name))
+                    .Distinct()
+                    .OrderBy(x => x)
+                    .ToList();
+
+            EmployeesListBox.ItemsSource = employees;
+
+            // === Сумма по месяцам ===
+            var monthly = _allRecords
+                .GroupBy(r => r.MonthEn)
+                .Select(g =>
+                {
+                    string monthRu = TranslateMonth(g.Key);
+                    decimal total = g.Sum(x => x.Amount);
+                    return new { Month = monthRu, TotalAmount = total };
+                })
+                .OrderBy(x => GetMonthOrder(x.Month))
+                .ToList();
+
+            MonthlyTotalsGrid.ItemsSource = monthly;
+        }
+
+        private void ClearForm()
+        {
+            txtName.Text = "";
+            txtSurname.Text = "";
+            txtAmount.Text = "";
+            txtMonthEn.Text = "";
         }
 
         // Перевод месяца
