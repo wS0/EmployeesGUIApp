@@ -71,6 +71,7 @@ namespace EmployeesGUIApp
                 return;
             }
 
+            // 2.1 (XSLT)
             try
             {
                 //load the Xml doc
@@ -93,6 +94,46 @@ namespace EmployeesGUIApp
             catch (Exception ex)
             {
                 MessageBox.Show($"Ошибка: {ex.Message}", "при трансформации", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+
+            // 2.2
+            try
+            {
+                //load the Xml doc
+                XDocument doc = XDocument.Load("result.xml");
+
+                // Культура, в которой запятая – разделитель дробной части
+                var ruCulture = new CultureInfo("ru-RU");
+
+                foreach (var emp in doc.Root.Elements("Employee"))
+                {
+                    // Все salary‑элементы текущего сотрудника
+                    var salaries = emp.Elements("salary");
+
+                    double sum = salaries
+                        .Select(s =>
+                        {
+                        // Берём строку атрибута amount
+                        string txt = s.Attribute("amount").Value;
+
+                        // Заменяем точку на запятую (и наоборот) — делаем валидным для Parse
+                        txt = txt.Replace('.', ',').Replace(',', System.Globalization.NumberFormatInfo.CurrentInfo.NumberDecimalSeparator[0]);
+
+                        // Парсим в double, учитывая локаль
+                        return double.Parse(txt, NumberStyles.Any, ruCulture);
+                        })
+                        .Sum();
+
+                    // Добавляем атрибут totalSalary
+                    emp.SetAttributeValue("totalSalary", sum.ToString("F2", CultureInfo.InvariantCulture));
+                }
+
+                // Сохраняем в файл:
+                doc.Save("employees_with_total.xml");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка: {ex.Message}", "при добавлении totalSalary", MessageBoxButton.OK, MessageBoxImage.Error);
             }
 
             try
