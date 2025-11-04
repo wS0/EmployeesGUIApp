@@ -5,7 +5,10 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Xml;
 using System.Xml.Linq;
+using System.Xml.XPath;
+using System.Xml.Xsl;
 
 namespace EmployeesGUIApp
 {
@@ -70,7 +73,31 @@ namespace EmployeesGUIApp
 
             try
             {
-                XDocument doc = XDocument.Load(_filePath);
+                //load the Xml doc
+                XPathDocument myXPathDoc = new XPathDocument(_filePath);
+
+                XslCompiledTransform myXslTrans = new XslCompiledTransform();
+
+                //load the Xsl 
+                myXslTrans.Load("../../data/any_data_to_Employees.xsl");
+
+                //create the output stream
+                XmlTextWriter myWriter = new XmlTextWriter
+                    ("result.xml", null);
+
+                //do the actual transform of Xml
+                myXslTrans.Transform(myXPathDoc, null, myWriter);
+
+                myWriter.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка: {ex.Message}", "при трансформации", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+
+            try
+            {
+                XDocument doc = XDocument.Load("result.xml");
                 var records = new List<SalaryRecord>();
 
                 foreach (XElement emp in doc.Root.Elements("Employee"))
