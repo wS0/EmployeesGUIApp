@@ -136,6 +136,53 @@ namespace EmployeesGUIApp
                 MessageBox.Show($"Ошибка: {ex.Message}", "при добавлении totalSalary", MessageBoxButton.OK, MessageBoxImage.Error);
             }
 
+            // 2.3
+            try
+            {
+                //load the Xml doc
+                XDocument doc = XDocument.Load(_filePath);
+
+                if (doc.Root?.Elements().FirstOrDefault()?.Name.LocalName == "item")
+                {
+                    // Используем InvariantCulture
+                    var inv = CultureInfo.InvariantCulture;
+
+                    double total = 0.0;
+
+                    foreach (var item in doc.Root.Elements("item"))
+                    {
+                        string amountStr = item.Attribute("amount").Value;
+
+                        // Заменяем запятую на точку, чтобы double.Parse понял любой вариант
+                        amountStr = amountStr.Replace(',', '.');
+
+                        if (double.TryParse(amountStr, NumberStyles.Any, inv, out double amount))
+                        {
+                            total += amount;
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Не удалось распознать amount: {amountStr}");
+                        }
+                    }
+
+                    // Добавляем атрибут total к <Pay>
+                    doc.Root.SetAttributeValue("total", total.ToString("F2", inv));
+
+                    // Сохраняем в файл:
+                    doc.Save("pay_with_total.xml");
+                }
+                else
+                {
+                    MessageBox.Show("Выбран файл НЕ data1. Total не добавлен.");
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка: {ex.Message}", "при добавлении total к <Pay>", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+
+            // GUI output
             try
             {
                 XDocument doc = XDocument.Load("result.xml");
